@@ -1,0 +1,124 @@
+################################################################################
+# PARM preprocessing pipeline 
+# Vinícius H. Franceschini-Santos, 2024-10-17
+# Version 0.5
+# =============================================================================
+# Description:
+#
+# This pipeline is used to preprocess the SuRE data for the PARM models.
+# The pipeline will overlap the data with the regulatory features, normalize
+# the data and split the data into folds for the cross-validation.
+# Several normalization methods are available, such as Log2Norm (Lucía's method),
+# LnNorm (Jeremie's method) and log2RPM (Noud's method).
+# The pipeline will also generate the input matrices (h5 format) for the PARM 
+# models.
+# =============================================================================
+# Versions:
+# 0.1 - Initial version
+# 0.2 - Add the folds information to the configuration file, also changes how 
+#       the celltypes are defined in the configuration file.
+# 0.3 - Compress the output files in the end of the pipeline.
+# 0.4 - Generates a PDF with the correlation plots for the replicates.
+# 0.5 - Add option to change the pseudocount value for Log2RPM normalization
+# =============================================================================
+
+OUTDIR: "/home/c.zambianchi/mydata/E2275/OUTPUT/MH4_PC9_dmso_gef_sch77/Folds"
+# Your input should be used here as a label that is contained in your input directory
+# INPUT:
+#    my_label:
+#      - path/to/SuRE_counts/dir/of/your/label
+# INPUT_DIR: /DATA/usr/n.klaassen/projects/SuRE_Promoter/analyses/20240717_pHY1-3/01_Pipelines_SuRE_and_Normalize/01_mESC_conditions_pNK5_pHY3/01_READ_PROCESSING
+# INPUT:
+#   - pHY3-mESC-output
+
+INPUT_DIR: /home/c.zambianchi/mydata/E2275/8136_MH04
+INPUT:
+  - MH4_5_CellLines
+
+DAYTAG: "NK20250411_MH4_PC9"
+
+CELLTYPES_TO_COLUMNS:
+# Specify the cell types you want to use in the analysis and the corresponding columns in the input files.
+# This should be like: 
+#  CELLTYPE_A:
+#    - COLUMN_A
+#    - COLUMN_B
+#  CELLTYPE_B:
+#    - COLUMN_C
+#    - COLUMN_D
+  8136_1_PC9_dmso_all:
+      - 8136_1_PC9_dmso_B1
+      - 8136_1_PC9_dmso_B2
+  8136_1_PC9_gef_all:
+      - 8136_1_PC9_gef_B1
+      - 8136_1_PC9_gef_B2
+  8136_1_PC9_sch77_all:
+      - 8136_1_PC9_sch77_B1
+      - 8136_1_PC9_sch77_B2
+  8136_1_PC9_dmso_B1:
+      - 8136_1_PC9_dmso_B1
+  8136_1_PC9_gef_B1:
+      - 8136_1_PC9_gef_B1
+  8136_1_PC9_sch77_B1:
+      - 8136_1_PC9_sch77_B1
+  8136_1_PC9_dmso_B2:
+      - 8136_1_PC9_dmso_B2
+  8136_1_PC9_gef_B2:
+      - 8136_1_PC9_gef_B2
+  8136_1_PC9_sch77_B2:
+      - 8136_1_PC9_sch77_B2
+ 
+
+# Defines the name of the column you need to use for the normalization.
+# Usually this is 'iPCR', but sometimes can be 'pDNA' or something else.
+NORMALIZATION_COLUMN: 
+  - pDNA_T1_T2_sum
+
+NORMALIZATION_THRESHOLD: 10
+NORMALIZATION_PSEUDOCOUNT: AUTO
+REGULATORY_FEATURES_DIR: "/DATA/usr/v.franceschini/PROJECTS/SURE_CNN/01-HUMAN/resources"
+REGULATORY_FEATURES:
+  # - VF231218_TSS_selection_m300_p100_vM23_merged
+  - tss_selection_m300_p100_stranded_EnhA_intersection
+  # - tss_selection_m1000_p1000_stranded
+  # - tss_selection_m0_p0_stranded
+  # - tss_selection_m300_p100
+  # - tss_selection_m1000_p1000
+  # - EnhA
+  # - peaks_hNPC_K562_HEPG2
+
+# Inside the FEATURES_IN_FOLDS_BASEDIR, you should have a file named as features_in_[FOLD].bed
+# where [FOLD] is the fold ID. The file should contain the coordinates of the features
+# that each fold should have. The file should be in BED format.
+FEATURES_IN_FOLDS_BASEDIR: /DATA/usr/v.franceschini/PROJECTS/SURE_CNN/SuRE-CNN-Preprocessing-Pipeline-FOLDS/features_in_folds
+
+GENOME: /DATA/usr/v.franceschini/GENOMES/hg19_ch1-22_XYM.fa
+
+MATRIX_SIZE: 600
+
+RANDOM_SEED: 42
+
+CHR:
+  - chr1
+  - chr2
+  - chr3
+  - chr4
+  - chr5
+  - chr6
+  - chr7
+  - chr8
+  - chr9
+  - chr10
+  - chr11
+  - chr12
+  - chr13
+  - chr14
+  - chr15
+  - chr16
+  - chr17
+  - chr18
+  - chr19
+  - chr20
+  - chr21
+  - chr22
+  - chrX
