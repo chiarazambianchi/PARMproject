@@ -53,8 +53,11 @@ DNA_input:
       - /shared/gcf/d.goodall/8136/NXT497_fastq_files/8136_5_PC9_gef_B2_ATCCACTG-ACGCACCT_S5_R1_001.fastq.gz
   8136_1_PC9_sch77_B2:
       - /shared/gcf/d.goodall/8136/NXT497_fastq_files/8136_6_PC9_sch77_B2_GCTTGTCA-GTATGTTC_S6_R1_001.fastq.gz
-  #pDNA_MH04_T2:
-  #- /shared/gcf/h.yucel/7800/NOVA298_fastq_files/7800_2_pDNA_pMH004_UDP16_CGGTTACGGC-CTATAGTCTT_S2_R1_001.fastq.gz
+  ### pDNA input ###
+  pDNA_MH04_T1:
+  - /shared/gcf/h.yucel/7800/NOVA298_fastq_files/7800_1_pDNA_pMH004_UDP15_TCCATTGCCG-TCGTGCATTC_S1_R1_001.fastq.gz
+  pDNA_MH04_T2:
+  - /shared/gcf/h.yucel/7800/NOVA298_fastq_files/7800_2_pDNA_pMH004_UDP16_CGGTTACGGC-CTATAGTCTT_S2_R1_001.fastq.gz
 # Additional information
 DNA_adapter: "CCTAGCTAACTATAACGGTCCTAAGGTAGCGAA"
 
