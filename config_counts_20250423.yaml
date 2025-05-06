@@ -1,0 +1,92 @@
+# Process Focused Library Data
+# Vinícius H. Franceschini-Santos, 2024-08-29
+# ==============================================================================
+# This Snakefile is used to process raw data of the Focused Library MPRA assay.
+# The main idea is to clean and process the iPCR data, clean and process the
+# cDNA data, and merge them, linking the iPCR with the cDNA by the barcode 
+# sequence.
+# More details are provided in the comments of each rule of the Snakefile.
+# ==============================================================================
+# 
+# Versions
+# --------
+#
+# - v0.0.1: Initial version, 2024-08-29
+#
+# ==============================================================================
+
+
+# Output directory =========================================================================
+# ==============================================================================
+output_dir: "8136_8156_MH04"
+
+
+# iPCR information =============================================================
+# ==============================================================================
+
+# Input
+iPCR_input:
+  iPCR_MH04_T2:
+    R1: /shared/gcf/h.yucel/7795/NXT440_fastq_files/7795_1_pMH004_222-35_AACATCGCGC-ACAAGTGG_S1_R1_001.fastq.gz
+    R2: /shared/gcf/h.yucel/7795/NXT440_fastq_files/7795_1_pMH004_222-35_AACATCGCGC-ACAAGTGG_S1_R2_001.fastq.gz
+    
+# Additional information
+iPCR_forward_adapter: "CCTAGCTAACTATAACGGTCCTAAGGTAGCGAACCAGTGAT"
+iPCR_reverse_adapter: "CCAGTCGT"
+mapping_max_insert_size: 1000
+
+
+# DNA information =============================================================
+# ==============================================================================
+
+# Input
+DNA_input:
+  8136_1_PC9_dmso_B1:
+      - /shared/gcf/d.goodall/8136/NXT497_fastq_files/8136_1_PC9_dmso_B1_CCGCGGTT-CTAGCGCT_S1_R1_001.fastq.gz
+  8136_1_PC9_gef_B1:
+       - /shared/gcf/d.goodall/8136/NXT497_fastq_files/8136_2_PC9_gef_B1_TTATAACC-TCGATATC_S2_R1_001.fastq.gz 
+  8136_1_PC9_sch77_B1:
+      - /shared/gcf/d.goodall/8136/NXT497_fastq_files/8136_3_PC9_sch77_B1_GGACTTGG-CGTCTGCG_S3_R1_001.fastq.gz
+  8156_1_PC9_dmso_B2:
+      - /shared/gcf/d.goodall/8156/NXT501_fastq_files/8156_1_PC9_dmso_B2_pMH04_AACATCGCGC-ACAAGTG_S1_R1_001.fastq.gz
+  8156_1_PC9_gef_B2:
+      - /shared/gcf/d.goodall/8156/NXT501_fastq_files/8156_2_PC9_gef_B2_pMH04_CTAGTGCTCT-TACTGTT_S2_R1_001.fastq.gz
+  8156_1_PC9_sch77_B2:
+      - /shared/gcf/d.goodall/8156/NXT501_fastq_files/8156_3_PC9_sch77_B2_pMH04_GATCAAGGCA-ATTAACA_S3_R1_001.fastq.gz
+  ### pDNA input ###
+  pDNA_MH04_T1:
+  - /shared/gcf/h.yucel/7800/NOVA298_fastq_files/7800_1_pDNA_pMH004_UDP15_TCCATTGCCG-TCGTGCATTC_S1_R1_001.fastq.gz
+  pDNA_MH04_T2:
+  - /shared/gcf/h.yucel/7800/NOVA298_fastq_files/7800_2_pDNA_pMH004_UDP16_CGGTTACGGC-CTATAGTCTT_S2_R1_001.fastq.gz
+# Additional information
+DNA_adapter: "CCTAGCTAACTATAACGGTCCTAAGGTAGCGAA"
+
+
+# Reference genome information =================================================
+# ==============================================================================
+
+mapping_referece: "/DATA/data/bowtie2/hg19_ch1-22_XYM"
+chromosomes:
+  - chr1
+  - chr2
+  - chr3
+  - chr4
+  - chr5
+  - chr6
+  - chr7
+  - chr8
+  - chr9
+  - chr10
+  - chr11
+  - chr12
+  - chr13
+  - chr14
+  - chr15
+  - chr16
+  - chr17
+  - chr18
+  - chr19
+  - chr20
+  - chr21
+  - chr22
+  - chrX
