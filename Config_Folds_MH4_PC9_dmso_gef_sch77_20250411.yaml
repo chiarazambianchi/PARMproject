@@ -31,9 +31,9 @@ OUTDIR: "/home/c.zambianchi/mydata/E2275/OUTPUT/MH4_PC9_dmso_gef_sch77/Folds"
 # INPUT:
 #   - pHY3-mESC-output
 
-INPUT_DIR: /home/c.zambianchi/mydata/E2275/8136_MH04
+INPUT_DIR: /home/c.zambianchi/mydata/E2275/
 INPUT:
-  - MH4_5_CellLines
+  - 8136_MH04
 
 DAYTAG: "NK20250411_MH4_PC9"
 
@@ -55,18 +55,18 @@ CELLTYPES_TO_COLUMNS:
   8136_1_PC9_sch77_all:
       - 8136_1_PC9_sch77_B1
       - 8136_1_PC9_sch77_B2
-  8136_1_PC9_dmso_B1:
-      - 8136_1_PC9_dmso_B1
-  8136_1_PC9_gef_B1:
-      - 8136_1_PC9_gef_B1
-  8136_1_PC9_sch77_B1:
-      - 8136_1_PC9_sch77_B1
-  8136_1_PC9_dmso_B2:
-      - 8136_1_PC9_dmso_B2
-  8136_1_PC9_gef_B2:
-      - 8136_1_PC9_gef_B2
-  8136_1_PC9_sch77_B2:
-      - 8136_1_PC9_sch77_B2
+  #8136_1_PC9_dmso_B1:
+   #   - 8136_1_PC9_dmso_B1
+  #8136_1_PC9_gef_B1:
+   #   - 8136_1_PC9_gef_B1
+  #8136_1_PC9_sch77_B1:
+   #   - 8136_1_PC9_sch77_B1
+  #8136_1_PC9_dmso_B2:
+   #   - 8136_1_PC9_dmso_B2
+  #8136_1_PC9_gef_B2:
+   #   - 8136_1_PC9_gef_B2
+  #8136_1_PC9_sch77_B2:
+   #   - 8136_1_PC9_sch77_B2
  
 
 # Defines the name of the column you need to use for the normalization.
@@ -122,3 +122,4 @@ CHR:
   - chr21
   - chr22
   - chrX
+
