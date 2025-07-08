@@ -1,0 +1,533 @@
+---
+title: "E227_counts_analysis"
+author: "Chiara Zambianchi"
+format: html
+editor: visual
+---
+
+## E2775 counts analysis (B2 analysis)
+
+The aim of this analysis is to obtain counts comparisons of gene expression between each treatment between each treatment (dmso vs gef, dmso vs erk inhibitor).
+
+**libraries loading**
+
+```{r}
+library (data.table)
+library (R.utils)
+library (readr)
+library (ggplot2)
+library (dplyr)
+```
+
+**1 step**: reading complete dataset containing counts mapped to feature information.
+
+```{r}
+df=fread("whole_dataset.txt.gz")
+head (df)
+```
+
+## B1 only analysis
+
+**2 step**: filtering columns (only B1 samples, chr information and feature information)
+
+```{r}
+B1_columns <- grep("B1", names(df), value = TRUE)
+selected_columns <- c('chr', B1_columns, 'FEAT')
+
+B1_df <- df[, ..selected_columns]    
+
+head(B1_df)
+
+```
+
+**3 step**: stripping only gene name in FEAT column
+
+```{r}
+B1_df <- B1_df[, gene := tstrsplit(FEAT, "_")[[2]]]
+head (B1_df)
+```
+
+**4 step**: calculating the mean of counts of promoters of the same gene
+
+```{r}
+gene_mean_B1 <- B1_df[, lapply(.SD, mean), by = gene, .SDcols = B1_columns]
+head (gene_mean_B1)
+```
+
+**5 step**: calculating log2foldchange
+
+```{r}
+gene_mean_B1$fold_change_gef <- ifelse(gene_mean_B1$'8136_1_PC9_dmso_B1' != 0 & gene_mean_B1$'8136_1_PC9_gef_B1' != 0, 
+                                        (gene_mean_B1$'8136_1_PC9_gef_B1' + 1e-8) / (gene_mean_B1$'8136_1_PC9_dmso_B1' + 1e-8), NA)
+
+gene_mean_B1$log2FC_gef <- ifelse(!is.na(gene_mean_B1$fold_change_gef), log2(gene_mean_B1$fold_change_gef), NA)
+
+
+gene_mean_B1$fold_change_sch <- ifelse(gene_mean_B1$'8136_1_PC9_dmso_B1' != 0 & gene_mean_B1$'8136_1_PC9_sch77_B1' != 0,
+                                        (gene_mean_B1$'8136_1_PC9_sch77_B1' + 1e-8) / (gene_mean_B1$'8136_1_PC9_dmso_B1' + 1e-8), NA)
+
+
+gene_mean_B1$log2FC_sch77 <- ifelse(!is.na(gene_mean_B1$fold_change_sch), log2(gene_mean_B1$fold_change_sch), NA)
+
+
+head(gene_mean_B1)
+```
+
+**6 step**: calculating significance from fold change (not statistically valid because I only have one replicate, only for visualisation)
+
+```{r}
+gene_mean_B1$significance_gef <- ifelse(abs(gene_mean_B1$log2FC_gef) > 1, "Significant", "Not significant")
+gene_mean_B1$significance_sch77 <- ifelse(abs(gene_mean_B1$log2FC_sch77) > 1, "Significant", "Not significant")
+```
+
+**7 step**: bar plots of all the genes
+
+```{r}
+significant_genes_gef <- gene_mean_B1[gene_mean_B1$significance_gef == "Significant", ]
+significant_genes_gef <- significant_genes_gef[order(significant_genes_gef$log2FC_gef), ]
+significant_genes_gef$regulation <- ifelse(significant_genes_gef$log2FC_gef > 0, "Up", "Down")
+significant_genes_gef$gene_index <- seq_len(nrow(significant_genes_gef))
+barplotB1_gef <- ggplot(significant_genes_gef, aes(x = gene_index, y = log2FC_gef, fill = regulation)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  scale_fill_manual(values = c("Up" = "green", "Down" = "red")) + 
+  scale_x_continuous(breaks = seq(0, max(significant_genes_gef$gene_index), by = 1000))+
+  labs(title = "Significant Genes - Log2 Fold Change (GEF vs DMSO)",
+       x = "Gene",
+       y = "Log2 Fold Change") +
+  theme_classic() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+barplotB1_gef
+```
+
+```{r}
+significant_genes_sch77 <- gene_mean_B1[gene_mean_B1$significance_sch77 == "Significant", ]
+significant_genes_sch77 <- significant_genes_sch77[order(significant_genes_sch77$log2FC_sch77), ]
+significant_genes_sch77$regulation <- ifelse(significant_genes_sch77$log2FC_sch77 > 0, "Up", "Down")
+significant_genes_sch77$gene_index <- seq_len(nrow(significant_genes_sch77))
+barplotB1_sch77 <- ggplot(significant_genes_sch77, aes(x = gene_index, y = log2FC_sch77, fill = regulation)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  scale_fill_manual(values = c("Up" = "green", "Down" = "red")) + 
+  scale_x_continuous(breaks = seq(0, max(significant_genes_sch77$gene_index), by = 500))+
+  labs(title = "Significant Genes - Log2 Fold Change (sch77 vs DMSO)",
+       x = "Gene",
+       y = "Log2 Fold Change") +
+  theme_classic() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+barplotB1_sch77
+```
+
+**8 step**: plot only top 50 with names
+
+```{r}
+
+upregulated_genes_gef <- significant_genes_gef[significant_genes_gef$log2FC_gef > 0, ]
+
+downregulated_genes_gef <- significant_genes_gef[significant_genes_gef$log2FC_gef < 0, ]
+top_20_downregulated_genes_gef <- downregulated_genes_gef[order(downregulated_genes_gef$log2FC_gef), ][1:20, ]
+
+final_genes_gef <- rbind(upregulated_genes_gef, top_20_downregulated_genes_gef)
+
+
+final_genes_gef$regulation <- ifelse(final_genes_gef$log2FC_gef > 0, "Up", "Down")
+
+
+barplot_final_B1_gef <- ggplot(final_genes_gef, aes(x = reorder(gene, log2FC_gef), y = log2FC_gef, fill = regulation)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  scale_fill_manual(values = c("Up" = "green", "Down" = "red")) +
+  labs(title = "Top Upregulated and 20 Most Downregulated Genes (GEF vs DMSO)",
+       x = "Gene", y = "Log2 Fold Change") +
+  theme_classic() +
+  theme(axis.text.x =element_text(angle = 45, hjust = 1))
+
+print(barplot_final_B1_gef)
+```
+
+```{r}
+upregulated_genes_sch77 <- significant_genes_sch77[significant_genes_sch77$log2FC_sch77 > 0, ]
+top_20_upregulated_genes_sch77 <- upregulated_genes_sch77[order(upregulated_genes_sch77$log2FC_sch77), ][1:20, ]
+
+downregulated_genes_sch77 <- significant_genes_sch77[significant_genes_sch77$log2FC_sch77 < 0, ]
+top_20_downregulated_genes_sch77 <- downregulated_genes_sch77[order(downregulated_genes_sch77$log2FC_sch77), ][1:20, ]
+
+final_genes_sch77 <- rbind(top_20_upregulated_genes_sch77, top_20_downregulated_genes_sch77)
+
+
+final_genes_sch77$regulation <- ifelse(final_genes_sch77$log2FC_sch77 > 0, "Up", "Down")
+
+
+barplot_final_B1_sch77 <- ggplot(final_genes_sch77, aes(x = reorder(gene, log2FC_sch77), y = log2FC_sch77, fill = regulation)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  scale_fill_manual(values = c("Up" = "green", "Down" = "red")) +
+  labs(title = "Top 40 Upregulated and Downregulated Genes (sch77 vs DMSO)",
+       x = "Gene", y = "Log2 Fold Change") +
+  theme_classic() +
+  theme(axis.text.x =element_text(angle = 45, hjust = 1))
+
+print(barplot_final_B1_sch77)
+```
+
+**9 step**: list of all significant genes with log2foldchange
+
+```{r}
+significant_genes_df_gef_B1 <- gene_mean_B1[gene_mean_B1$significance_gef == "Significant", c("gene", "log2FC_gef")]
+significant_genes_df_gef_B1 <- significant_genes_df_gef_B1[order(-abs(significant_genes_df_gef_B1$log2FC_gef)), ]
+significant_genes_df_sch77_B1 <- gene_mean_B1[gene_mean_B1$significance_sch77 == "Significant", c("gene", "log2FC_sch77")]
+significant_genes_df_sch77_B1 <- significant_genes_df_sch77_B1[order(-abs(significant_genes_df_sch77_B1$log2FC_sch77)), ]
+```
+
+**10 step**: barplot checking the number of up and down regulated promoters
+
+```{r}
+significant_genes_gef$treatment <- "GEF"
+significant_genes_sch77$treatment <- "SCH77"
+```
+
+```{r}
+combined_significant <- rbind(
+  significant_genes_gef[, c("gene", "regulation", "treatment")],
+  significant_genes_sch77[, c("gene", "regulation", "treatment")]
+)
+head (combined_significant)
+```
+
+```{r}
+reg_counts <- combined_significant %>%
+  group_by(treatment, regulation) %>%
+  summarise(count = n(), .groups = "drop")
+
+up_plot <- ggplot(filter(reg_counts, regulation == "Up"),
+       aes(x = treatment, y = count, fill = treatment)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  labs(title = "Number of Upregulated Promoters",
+       x = "Treatment",
+       y = "Number of Promoters") +
+  scale_fill_manual(values = c("GEF" = "green", "SCH77" = "forestgreen")) +
+  theme_classic()
+up_plot
+```
+
+```{r}
+down_plot <- ggplot(filter(reg_counts, regulation == "Down"),
+       aes(x = treatment, y = count, fill = treatment)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  labs(title = "Number of Downregulated Promoters",
+       x = "Treatment",
+       y = "Number of Promoters") +
+  scale_fill_manual(values = c("GEF" = "red", "SCH77" = "firebrick")) +
+  theme_classic()
+down_plot
+```
+
+**11 step**: save plots and lists
+
+```{r}
+ggsave("barplot_top40_B1_gef.png", barplot_final_B1_gef)
+ggsave('barplot_top40_B1_sch77.png',barplot_final_B1_sch77 )
+ggsave("barplot_B1_gef.png", barplotB1_gef)
+ggsave('barplot_B1_sch77.png', barplotB1_sch77 )
+ggsave('barplot_up.png', up_plot)
+ggsave('barplot_down.png', down_plot)
+write.table(significant_genes_df_gef_B1, "significant_genes_ordered_gef_B1.txt", sep = "\t", row.names = FALSE, quote = FALSE)
+write.table(significant_genes_df_sch77_B1, "significant_genes_ordered_sch77_B1.txt", sep = "\t", row.names = FALSE, quote = FALSE)
+
+```
+
+## B2 only analysis
+
+**2 step**: filtering columns (only B2 samples, chr information and feature information)
+
+```{r}
+B2_columns <- grep("B2", names(df), value = TRUE)
+selected_columns_B2 <- c('chr', B2_columns, 'FEAT')
+
+B2_df <- df[, ..selected_columns_B2]    
+
+head(B2_df)
+
+```
+
+**3 step**: stripping only gene name in FEAT column
+
+```{r}
+B2_df <- B2_df[, gene := tstrsplit(FEAT, "_")[[2]]]
+head (B2_df)
+```
+
+**optional step**: saving old-B2 for future comparison
+
+```{r}
+write.table(B2_df, file='old_B2.txt')
+```
+
+**4 step**: calculating the mean of counts of promoters of the same gene
+
+```{r}
+gene_mean_B2 <- B2_df[, lapply(.SD, mean), by = gene, .SDcols = B2_columns]
+head (gene_mean_B2)
+```
+
+**5 step**: calculating log2foldchange
+
+```{r}
+gene_mean_B2$fold_change_gef <- ifelse(gene_mean_B2$'8136_1_PC9_dmso_B2' != 0 & gene_mean_B2$'8136_1_PC9_gef_B2' != 0, 
+                                        (gene_mean_B2$'8136_1_PC9_gef_B2' + 1e-8) / (gene_mean_B2$'8136_1_PC9_dmso_B2' + 1e-8), NA)
+
+gene_mean_B2$log2FC_gef <- ifelse(!is.na(gene_mean_B2$fold_change_gef), log2(gene_mean_B2$fold_change_gef), NA)
+
+
+gene_mean_B2$fold_change_sch <- ifelse(gene_mean_B2$'8136_1_PC9_dmso_B2' != 0 & gene_mean_B2$'8136_1_PC9_sch77_B2' != 0,
+                                        (gene_mean_B2$'8136_1_PC9_sch77_B2' + 1e-8) / (gene_mean_B2$'8136_1_PC9_dmso_B2' + 1e-8), NA)
+
+
+gene_mean_B2$log2FC_sch77 <- ifelse(!is.na(gene_mean_B2$fold_change_sch), log2(gene_mean_B2$fold_change_sch), NA)
+
+# View the result
+head(gene_mean_B2)
+```
+
+**6 step**: calculating significance from fold change (not statistically valid because I only have one replicate, only for visualisation)
+
+```{r}
+gene_mean_B2$significance_gef <- ifelse(abs(gene_mean_B2$log2FC_gef) > 1, "Significant", "Not significant")
+gene_mean_B2$significance_sch77 <- ifelse(abs(gene_mean_B2$log2FC_sch77) > 1, "Significant", "Not significant")
+```
+
+**7 step**: barplot of all the genes
+
+```{r}
+significant_genes_gef_B2 <- gene_mean_B2[gene_mean_B2$significance_gef == "Significant", ]
+significant_genes_gef_B2 <- significant_genes_gef_B2[order(significant_genes_gef_B2$log2FC_gef), ]
+significant_genes_gef_B2$regulation <- ifelse(significant_genes_gef_B2$log2FC_gef > 0, "Up", "Down")
+significant_genes_gef_B2$gene_index <- seq_len(nrow(significant_genes_gef_B2))
+barplotB2_gef <- ggplot(significant_genes_gef_B2, aes(x = gene_index, y = log2FC_gef, fill = regulation)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  scale_fill_manual(values = c("Up" = "green", "Down" = "red")) + 
+  scale_x_continuous(breaks = seq(0, max(significant_genes_gef$gene_index), by = 1000))+
+  labs(title = "Significant Genes - Log2 Fold Change (GEF vs DMSO)",
+       x = "Gene",
+       y = "Log2 Fold Change") +
+  theme_classic() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+barplotB2_gef
+```
+
+```{r}
+
+significant_genes_sch77_B2 <- gene_mean_B2[gene_mean_B2$significance_sch77 == "Significant", ]
+significant_genes_sch77_B2 <- significant_genes_sch77_B2[order(significant_genes_sch77_B2$log2FC_sch77), ]
+significant_genes_sch77_B2$regulation <- ifelse(significant_genes_sch77_B2$log2FC_sch77 > 0, "Up", "Down")
+significant_genes_sch77_B2$gene_index <- seq_len(nrow(significant_genes_sch77_B2))
+barplotB2_sch77 <- ggplot(significant_genes_sch77_B2, aes(x = gene_index, y = log2FC_sch77, fill = regulation)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  scale_fill_manual(values = c("Up" = "green", "Down" = "red")) + 
+  scale_x_continuous(breaks = seq(0, max(significant_genes_sch77$gene_index), by = 500))+
+  labs(title = "Significant Genes - Log2 Fold Change (sch77 vs DMSO)",
+       x = "Gene",
+       y = "Log2 Fold Change") +
+  theme_classic() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+barplotB2_sch77
+```
+
+**8 step**: plot only top 50 with names
+
+```{r}
+upregulated_genes_gef_B2 <- significant_genes_gef_B2[significant_genes_gef_B2$log2FC_gef > 0, ]
+top_20_upregulated_genes_gef_B2 <- upregulated_genes_gef_B2[order(upregulated_genes_gef_B2$log2FC_gef), ][1:20, ]
+downregulated_genes_gef_B2 <- significant_genes_gef_B2[significant_genes_gef_B2$log2FC_gef < 0, ]
+top_20_downregulated_genes_gef_B2 <- downregulated_genes_gef_B2[order(downregulated_genes_gef_B2$log2FC_gef), ][1:20, ]
+
+final_genes_gef_B2 <- rbind(top_20_upregulated_genes_gef_B2, top_20_downregulated_genes_gef_B2)
+
+
+final_genes_gef_B2$regulation <- ifelse(final_genes_gef_B2$log2FC_gef > 0, "Up", "Down")
+
+
+barplot_final_B2_gef <- ggplot(final_genes_gef_B2, aes(x = reorder(gene, log2FC_gef), y = log2FC_gef, fill = regulation)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  scale_fill_manual(values = c("Up" = "green", "Down" = "red")) +
+  labs(title = "Top Upregulated and 20 Most Downregulated Genes (GEF vs DMSO)",
+       x = "Gene", y = "Log2 Fold Change") +
+  theme_classic() +
+  theme(axis.text.x =element_text(angle = 45, hjust = 1))
+
+print(barplot_final_B2_gef)
+```
+
+```{r}
+upregulated_genes_sch77_B2 <- significant_genes_sch77_B2[significant_genes_sch77_B2$log2FC_sch77 > 0, ]
+top_20_upregulated_genes_sch77_B2 <- upregulated_genes_sch77_B2[order(upregulated_genes_sch77_B2$log2FC_sch77), ][1:20, ]
+
+downregulated_genes_sch77_B2 <- significant_genes_sch77_B2[significant_genes_sch77_B2$log2FC_sch77 < 0, ]
+top_20_downregulated_genes_sch77_B2 <- downregulated_genes_sch77_B2[order(downregulated_genes_sch77_B2$log2FC_sch77), ][1:20, ]
+
+final_genes_sch77_B2 <- rbind(top_20_upregulated_genes_sch77_B2, top_20_downregulated_genes_sch77_B2)
+
+
+final_genes_sch77_B2$regulation <- ifelse(final_genes_sch77_B2$log2FC_sch77 > 0, "Up", "Down")
+
+
+barplot_final_B2_sch77 <- ggplot(final_genes_sch77_B2, aes(x = reorder(gene, log2FC_sch77), y = log2FC_sch77, fill = regulation)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  scale_fill_manual(values = c("Up" = "green", "Down" = "red")) +
+  labs(title = "Top 40 Upregulated and Downregulated Genes (sch77 vs DMSO)",
+       x = "Gene", y = "Log2 Fold Change") +
+  theme_classic() +
+  theme(axis.text.x =element_text(angle = 45, hjust = 1))
+
+print(barplot_final_B2_sch77)
+```
+
+**9 step**: listing all the significant genes
+
+```{r}
+significant_genes_df_gef_B2 <- gene_mean_B2[gene_mean_B2$significance_gef == "Significant", c("gene", "log2FC_gef")]
+significant_genes_df_gef_B2 <- significant_genes_df_gef_B2[order(-abs(significant_genes_df_gef_B2$log2FC_gef)), ]
+significant_genes_df_sch77_B2 <- gene_mean_B2[gene_mean_B2$significance_sch77 == "Significant", c("gene", "log2FC_sch77")]
+significant_genes_df_sch77_B2 <- significant_genes_df_sch77_B2[order(-abs(significant_genes_df_sch77_B2$log2FC_sch77)), ]
+```
+
+**10 step**: saving all plots and data
+
+```{r}
+ggsave("barplot_top40_B2_gef.png", barplot_final_B2_gef)
+ggsave('barplot_top40_B2_sch77.png',barplot_final_B2_sch77 )
+ggsave("barplot_B2_gef.png", barplotB2_gef)
+ggsave('barplot_B2_sch77.png',barplotB2_sch77 )
+write.table(significant_genes_df_gef_B2, "significant_genes_ordered_gef_B2.txt", sep = "\t", row.names = FALSE, quote = FALSE)
+write.table(significant_genes_df_sch77_B2, "significant_genes_ordered_sch77_B2.txt", sep = "\t", row.names = FALSE, quote = FALSE)
+
+```
+
+## Volcano plot
+
+**2 step**: filtering columns (only B1 and B2 samples, chr information and feature information)
+
+```{r}
+B1_columns <- grep("B1", names(df), value = TRUE)
+B2_columns <- grep("B2", names(df), value = TRUE)
+selected_columns_final <- c('chr', B1_columns, B2_columns, 'FEAT')
+
+volcano_df <- df[, ..selected_columns_final]    
+
+head(volcano_df)
+```
+
+**3 step**: stripping only gene name in FEAT column
+
+```{r}
+volcano_df <- volcano_df[, gene := tstrsplit(FEAT, "_")[[2]]]
+head (volcano_df)
+```
+
+**4 step**: calculating the mean of counts of promoters of the same gene
+
+```{r}
+gene_mean<- volcano_df[, lapply(.SD, mean), by = gene, .SDcols = c(B1_columns, B2_columns)]
+head (gene_mean)
+```
+
+**5 step**: calculate mean value between the two replicate
+
+```{r}
+gene_mean$dmso_mean <- rowMeans(gene_mean[, c("8136_1_PC9_dmso_B1", "8136_1_PC9_dmso_B2")])
+gene_mean$gef_mean <- rowMeans(gene_mean[, c("8136_1_PC9_gef_B1", "8136_1_PC9_gef_B2")])
+gene_mean$sch77_mean <- rowMeans(gene_mean[, c("8136_1_PC9_sch77_B1", "8136_1_PC9_sch77_B2")])
+```
+
+**6 step**: calculating log 2 fold change
+
+```{r}
+gene_mean$fold_change_gef <- ifelse(gene_mean$dmso_mean != 0 & gene_mean$gef_mean != 0, 
+                                        (gene_mean$gef_mean + 1e-8) / (gene_mean$dmso_mean + 1e-8), NA)
+
+gene_mean$log2FC_gef <- ifelse(!is.na(gene_mean$fold_change_gef), log2(gene_mean$fold_change_gef), NA)
+
+
+gene_mean$fold_change_sch <- ifelse(gene_mean$dmso_mean != 0 & gene_mean$sch77_mean != 0,
+                                        (gene_mean$sch77_mean + 1e-8) / (gene_mean$dmso_mean + 1e-8), NA)
+
+
+gene_mean$log2FC_sch77 <- ifelse(!is.na(gene_mean$fold_change_sch), log2(gene_mean$fold_change_sch), NA)
+
+# View the result
+head(gene_mean)
+```
+
+**7 step**: calculating p value
+
+```{r}
+gene_mean$pvalue_gef <- apply(gene_mean[, c("8136_1_PC9_dmso_B1", "8136_1_PC9_dmso_B2", "8136_1_PC9_gef_B1", "8136_1_PC9_gef_B2")], 1, function(x) {
+ tryCatch({
+    t.test(x[1:2], x[3:4])$p.value
+  }, error = function(e) {
+    NA  # Return NA if t-test fails
+  })
+})
+
+gene_mean$pvalue_sch77 <- apply(gene_mean[, c("8136_1_PC9_dmso_B1", "8136_1_PC9_dmso_B2", "8136_1_PC9_sch77_B1", "8136_1_PC9_sch77_B2")], 1, function(x) {
+ tryCatch({
+    t.test(x[1:2], x[3:4])$p.value
+  }, error = function(e) {
+    NA  # Return NA if t-test fails
+  })
+})
+```
+
+**8 step**: check for significance
+
+```{r}
+gene_mean$significance_gef <- ifelse(gene_mean$pvalue_gef < 0.05 & abs(gene_mean$log2FC_gef) > 1, "Significant", "Not Significant")
+gene_mean$significance_sch77 <- ifelse(gene_mean$pvalue_sch77 < 0.05 & abs(gene_mean$log2FC_sch77) > 1, "Significant", "Not Significant")
+```
+
+**9 step**: plot volcano plots
+
+```{r}
+volcano_gef<- ggplot(gene_mean, aes(x = log2FC_gef, y = -log10(pvalue_gef), color = significance_gef)) +
+   geom_point(alpha = 0.8, size = 2.5) +
+  geom_text(
+    data = subset(gene_mean, significance_gef == "Significant"),
+    aes(label = gene),
+    size =3,
+    vjust = -1,
+    check_overlap = TRUE
+  ) +
+  scale_color_manual(values = c("gray", "red")) +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed") +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+  labs(title = "Volcano Plot (GEF vs DMSO)", x = "Log2 Fold Change", y = "-Log10 p-value") +
+  theme_classic()
+
+volcano_gef
+```
+
+```{r}
+volcano_sch77<- ggplot(gene_mean, aes(x = log2FC_sch77, y = -log10(pvalue_sch77), color = significance_sch77)) +
+  geom_point(alpha = 0.8, size = 2.5) +
+   geom_text(
+    data = subset(gene_mean, significance_sch77 == "Significant"),
+    aes(label = gene),
+    size = 3,
+    vjust = -1,
+    check_overlap = TRUE
+  ) +
+  scale_color_manual(values = c("gray", "red")) +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed") +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+  labs(title = "Volcano Plot (sch77 vs DMSO)", x = "Log2 Fold Change", y = "-Log10 p-value") +
+  theme_classic()
+
+volcano_sch77
+```
+
+**10 step**: saving the plots
+
+```{r}
+ggsave("volcano_gef.png", volcano_gef)
+ggsave('volcano_sch77.png',volcano_sch77 )
+```
