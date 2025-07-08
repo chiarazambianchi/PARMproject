@@ -1,0 +1,85 @@
+---
+title: "PARM data analysis"
+format: html
+editor: visual
+---
+
+### Parm data analysis
+
+Calculation of Fold Changes from predicted values of the PARM model using B1 and B3
+
+**Library loading**
+
+```{r}
+library (data.table)
+library (R.utils)
+library (readr)
+library (ggplot2)
+library (dplyr)
+library (tidyr)
+library (ggrepel)
+library(patchwork)
+```
+
+**1 step**: reading predicted activity file
+
+```{r}
+predicted_activity_df=fread("E2275/prediction_dmso_gef_sch77")
+head (predicted_activity_df)
+```
+
+**2 step**: calculating log2FC
+
+```{r}
+predicted_activity_df$log2FC_gef<-log2(predicted_activity_df$prediction_PC9_gef_all/predicted_activity_df$prediction_PC9_dmso_all)
+predicted_activity_df$log2FC_sch77<-log2(predicted_activity_df$prediction_PC9_sch77_all/predicted_activity_df$prediction_PC9_dmso_all)
+head(predicted_activity_df)
+```
+
+**3 step**: extracting gene
+
+```{r}
+predicted_activity_df <- predicted_activity_df[, gene := tstrsplit(header, "_")[[1]]]
+head (predicted_activity_df)
+```
+
+**4 step**: reshaping dataset
+
+```{r}
+predicted_activity_df_long <- predicted_activity_df %>%
+  pivot_longer(cols = starts_with("log2FC"), names_to = "treatment", values_to = "log2FC") %>%
+  mutate(treatment = recode(treatment,
+                            log2FC_gef = "Gefitinib",
+                            log2FC_sch77 = "SCH77"))
+```
+
+**5 step**: plotting barplots
+
+```{r}
+barplot_predictedactivity<- ggplot(predicted_activity_df_long, aes(x = gene, y = log2FC, fill = treatment)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  scale_fill_manual(values = c("Gefitinib" = "blue", "SCH77" = "red")) +
+  labs(x = "Gene", y = "log2 Fold Change", fill = "Treatment") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+barplot_predictedactivity
+```
+
+**6 step**: scatter plot log2 fc gef vs log2 fc sch77
+
+```{r}
+scatter_plot<-ggplot(predicted_activity_df, aes(x = log2FC_gef, y = log2FC_sch77, label = gene)) +
+  geom_point(size = 3, colour='gray') +
+  geom_text(vjust = -1, size = 3) +
+  labs(
+    x = "log2FC Gefitinib",
+    y = "log2FC SCH77"
+  ) +
+  geom_abline(slope = 1, intercept = 0, linetype='dotted')+
+  xlim(-1, 1) +
+  ylim(-1, 1)+
+  theme_minimal()
+
+scatter_plot
+```

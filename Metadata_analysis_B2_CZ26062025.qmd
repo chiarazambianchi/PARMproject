@@ -1,0 +1,376 @@
+---
+title: "metadata comparison"
+format: html
+editor: visual
+---
+
+# Metadata comparison
+
+**Library loading**
+
+```{r}
+library(rtracklayer)
+library(GenomicRanges)
+library(dplyr)
+```
+
+**Merging bed files**
+
+```{r}
+bed1<-import("metadata_fold0.bed.gz",header = TRUE, sep = "\t" )
+bed2<-import("metadata_fold1.bed.gz", header = TRUE, sep = "\t")
+bed3<-import("metadata_fold2.bed.gz", header = TRUE, sep = "\t")
+bed4<-import("metadata_fold3.bed.gz", header = TRUE, sep = "\t")
+bed5<-import("metadata_test.bed.gz", header = TRUE, sep = "\t")
+all_bed<-c(bed1,bed2,bed3,bed4,bed5)
+all_bed <- sort(all_bed)
+merged_bed<-reduce(all_bed)
+head(merged_bed)
+```
+
+```{r}
+df1 <- read.table("metadata_fold0.bed.gz", sep = "\t", header = TRUE)
+
+df2 <- read.table("metadata_fold1.bed.gz", sep = "\t", header = TRUE)
+
+df3 <- read.table("metadata_fold2.bed.gz", sep = "\t", header = TRUE)
+
+df4 <- read.table("metadata_fold3.bed.gz", sep = "\t", header = TRUE)
+
+df5 <- read.table("metadata_fold4.bed.gz", sep = "\t", header = TRUE)
+
+df6 <- read.table("metadata_test.bed.gz", sep = "\t", header = TRUE)
+
+```
+
+```{r}
+
+all_df<- rbind(df1, df2, df3, df4, df5, df6)
+
+```
+
+## Comparison of only significant genes
+
+**2 step**: only keeping significant promoters (from BCALM analysis) and with p1+p2 dna\>10
+
+```{r}
+all_df_filtered<-all_df%>%filter(pDNA_T1_T2_sum>=10)
+```
+
+```{r}
+all_df_filtered$gene_transcript <- sapply(strsplit(all_df_filtered$FEAT, "_"), function(x) paste(x[2], x[3], sep = "_"))
+```
+
+```{r}
+significant_genes_all<- c("ROCK1P1_ENST00000608049.5","ANKRD30BL_ENST00000470729.5", "PDE4DIP_ENST00000617527.4", "NOTCH2_ENST00000256646.6", "RP11-640M9.2_ENST00000421407.1","FRG1JP_ENST00000376334.3", "PDE4DIP_ENST00000369347.8", "LINC01193_ENST00000553416.5" ,"NBPF15_ENST00000584793.6",       
+"RNU1-59P_ENST00000364829.1", "MUC2_ENST00000333592.6", "CROCC_ENST00000375541.9" , "IGHV1OR15-3_ENST00000564926.3" , "RRBP1_ENST00000495501.2" ,       "NBPF1_ENST00000449853.2" ,       
+"RNA5-8SP2_ENST00000363564.1","IGLJ3_ENST00000390324.2",        "ZNF595_ENST00000610261.5",      
+"PDXDC1_ENST00000535621.6" 
+ )
+```
+
+```{r}
+filtered_df <- all_df_filtered[all_df_filtered$gene_transcript %in% significant_genes_all, ]
+```
+
+**3 step**: make the plots
+
+```{r}
+library(tidyr)
+library(dplyr)
+
+
+activity_cols <- grep("^X\\d+.*B\\d$", colnames(filtered_df), value = TRUE)
+
+long_df <- filtered_df %>%
+  select(gene_transcript, all_of(activity_cols)) %>%
+  pivot_longer(
+    cols = all_of(activity_cols),
+    names_to = "condition",
+    values_to = "activity"
+  ) %>%
+  separate(condition, into = c("cond_id", "number","cell_line", "treatment", "replicate"), sep = "_", remove = FALSE)
+```
+
+```{r}
+promoters <- unique(long_df$gene_transcript)
+
+for (p in promoters) {
+  p_df <- filter(long_df, gene_transcript == p)
+  
+  plot <- ggplot(p_df, aes(x = treatment, y = activity, fill = replicate)) +
+    geom_violin(
+      position = position_dodge(width = 0.8),
+      trim = FALSE,
+      alpha = 0.6
+    ) +
+    geom_jitter(
+      aes(color = replicate),
+      position = position_jitterdodge(jitter.width = 0.15, dodge.width = 0.8),
+      size = 1.5,
+      alpha = 0.6
+    ) +
+    theme_classic() +
+    labs(
+      title = paste("Activity for", p),
+      x = "Treatment",
+      y = "Activity"
+    ) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  print(plot)
+}
+```
+
+```{r}
+promoters <- unique(long_df$gene_transcript)
+
+for (p in promoters) {
+  p_df <- filter(long_df, gene_transcript == p)
+  
+  plot <- ggplot(p_df, aes(x = treatment, y = activity, fill = replicate)) +
+    geom_violin(
+      position = position_dodge(width = 0.8),
+      trim = FALSE,
+      alpha = 0.6
+    ) +
+    geom_jitter(
+      aes(color = replicate),
+      position = position_jitterdodge(jitter.width = 0.15, dodge.width = 0.8),
+      size = 1.5,
+      alpha = 0.6
+    ) +
+    scale_fill_manual(values = c(
+      "B1" = "blue",
+      "B2" = "red",
+      "B3" = "green"   # <-- B3 is green now
+    )) +
+    scale_color_manual(values = c(
+      "B1" = "blue",
+      "B2" = "red",
+      "B3" = "green"   # <-- same here for points
+    )) +
+    theme_classic() +
+    labs(
+      title = paste("Activity for", p),
+      x = "Treatment",
+      y = "Activity"
+    ) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  print(plot)
+}
+```
+
+```{r}
+promoters <- unique(long_df$gene_transcript)
+
+for (p in promoters) {
+  p_df <- filter(long_df, gene_transcript == p)
+  
+  plot <- ggplot(p_df, aes(x = condition, y = activity)) +
+    geom_violin(trim = FALSE, fill = "lightgreen", alpha = 0.6) +
+    geom_jitter(
+  width = 0.2,
+  size = 1.5,
+  color = "darkblue",
+  alpha = 0.6
+) +
+    theme_classic() +
+    labs(
+      title = paste("Activity for", p),
+      x = "Condition + Replicate",
+      y = "Activity"
+    ) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  print(plot)
+}
+```
+
+## Violin plots averaging the replicates
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# Step 1: Identify activity columns (replicates)
+activity_cols <- grep("^X\\d+.*B\\d$", colnames(filtered_df), value = TRUE)
+
+# Step 2: Reshape data to long format with condition
+long_df <- filtered_df %>%
+  select(gene_transcript, all_of(activity_cols)) %>%
+  pivot_longer(
+    cols = all_of(activity_cols),
+    names_to = "sample",
+    values_to = "activity"
+  ) %>%
+  mutate(
+    condition = case_when(
+      grepl("dmso", sample, ignore.case = TRUE) ~ "dmso",
+      grepl("gef", sample, ignore.case = TRUE) ~ "gef",
+      grepl("sch77", sample, ignore.case = TRUE) ~ "sch77",
+      TRUE ~ "other"
+    )
+  )
+
+# Step 3: Compute mean activity per promoter per condition
+mean_df <- long_df %>%
+  group_by(gene_transcript, condition) %>%
+  summarise(
+    mean_activity = mean(activity, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Step 4: Loop and plot each promoter individually
+promoters <- unique(mean_df$gene_transcript)
+
+for (p in promoters) {
+  p_df <- filter(mean_df, gene_transcript == p)
+  
+  plot <- ggplot(p_df, aes(x = condition, y = mean_activity, fill = condition)) +
+    geom_violin(trim = FALSE, alpha = 0.4, color = NA) +  # pseudo-violin with limited points
+    geom_jitter(width = 0.15, size = 2, color = "steelblue", alpha = 0.7) +
+    theme_classic() +
+    labs(
+      title = paste("Average Activity (B1 & B2 averaged):", p),
+      x = "Condition",
+      y = "Mean Activity"
+    ) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    scale_fill_brewer(palette = "Pastel1")
+  
+  print(plot)
+}
+
+```
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+
+# Extract columns matching e.g., "X1B1", "X1B2"
+activity_cols <- grep("^X\\d+.*B\\d$", colnames(filtered_df), value = TRUE)
+
+# Pivot to long format and extract common condition label (e.g., "X1")
+long_df <- filtered_df %>%
+  select(gene_transcript, all_of(activity_cols)) %>%
+  pivot_longer(
+    cols = all_of(activity_cols),
+    names_to = "condition",
+    values_to = "activity"
+  ) %>%
+  mutate(group = gsub("B\\d+", "", condition))  # Remove B1/B2 to get "X1", "X2", etc.
+
+# Get unique gene_transcripts
+promoters <- unique(long_df$gene_transcript)
+
+# Plot violin plots with grouped conditions
+for (p in promoters) {
+  p_df <- filter(long_df, gene_transcript == p)
+  
+  plot <- ggplot(p_df, aes(x = group, y = activity)) +
+    geom_violin(trim = FALSE, fill = "lightgreen", alpha = 0.6) +
+    geom_jitter(width = 0.2, size = 1.5, color = "darkblue", alpha = 0.6) +
+    theme_classic() +
+    labs(
+      title = paste("Activity for", p),
+      x = "Condition (B1+B2 grouped)",
+      y = "Activity"
+    ) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  print(plot)
+}
+
+
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+
+# Step 1
+activity_cols <- grep("^X\\d+.*B\\d$", colnames(filtered_df), value = TRUE)
+
+# Step 2
+long_df <- filtered_df %>%
+  select(gene_transcript, all_of(activity_cols)) %>%
+  pivot_longer(
+    cols = all_of(activity_cols),
+    names_to = "sample",
+    values_to = "activity"
+  ) %>%
+  mutate(
+    replicate_id = str_extract(sample, "^X\\d+.*(?=B[12]$)"),  # more robust
+    condition = case_when(
+      str_detect(sample, "dmso") ~ "dmso",
+      str_detect(sample, "gef") ~ "gef",
+      str_detect(sample, "sch77") ~ "sch77",
+      TRUE ~ "other"
+    )
+  )
+
+# Step 3: average B1 and B2 per replicate
+avg_df <- long_df %>%
+  group_by(gene_transcript, replicate_id, condition) %>%
+  summarise(avg_activity = mean(activity, na.rm = TRUE), .groups = "drop")
+
+# Step 4: plot
+for (p in unique(avg_df$gene_transcript)) {
+  p_df <- filter(avg_df, gene_transcript == p)
+  
+  plot <- ggplot(p_df, aes(x = condition, y = avg_activity, fill = condition)) +
+    geom_violin(trim = FALSE, alpha = 0.4, color = NA) +
+    geom_jitter(width = 0.15, size = 2, color = "steelblue", alpha = 0.7) +
+    theme_classic() +
+    labs(
+      title = paste("Average Activity (B1 & B2 merged):", p),
+      x = "Condition",
+      y = "Mean Activity"
+    ) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    scale_fill_brewer(palette = "Pastel1")
+  
+  print(plot)
+}
+
+```
+
+## Measured vs predicted activity test
+
+**2 step**: measured activity of test set
+
+```{r}
+df6$gene_transcript <- sapply(strsplit(df6$FEAT, "_"), function(x) paste(x[2], x[3], sep = "_"))
+```
+
+```{r}
+promoters_testset<- unique (df6$gene_transcript)
+```
+
+## Correlation plots
+
+```{r}
+library(GGally)
+
+```
+
+```{r}
+colnames(all_df_filtered)[6:11] <- gsub("^.*PC9_(.*)$", "\\1", colnames(all_df_filtered)[6:11])
+ggpairs(all_df_filtered, columns= c(6:11))
+```
+
+```{r}
+ggpairs(
+  all_df_filtered,
+  columns = 6:11,
+  upper = list(continuous = wrap("points", alpha = 0.5)),
+  lower = list(continuous = wrap("points", alpha = 0.5)),
+  diag = list(continuous = wrap("densityDiag", alpha = 0.5))
+)
+```

@@ -1,0 +1,305 @@
+---
+title: "BCalm_script"
+format: html
+editor: visual
+---
+
+## 
+
+# BCalm formatting script
+
+**Library loading**
+
+```{r}
+library (data.table)
+library (R.utils)
+library (readr)
+library (ggplot2)
+library (dplyr)
+library (tidyr)
+library (ggrepel)
+library(patchwork)
+```
+
+**1 step**: reading complete dataset containing counts mapped to feature information.
+
+```{r}
+df=fread("whole_dataset.txt.gz")
+df$FEAT <- paste0("variant_", df$FEAT)
+head (df)
+```
+
+## cDNA preprocessing (RNA)
+
+**2 step**: filtering columns (only B1 and B2 samples and feature information)
+
+```{r}
+B1_columns <- grep("B1", names(df), value = TRUE)
+B2_columns <- grep("B2", names(df), value = TRUE)
+selected_columns_final <- c(B1_columns, B2_columns, 'FEAT')
+
+cdna_df <- df[, ..selected_columns_final]    
+
+head(cdna_df)
+```
+
+**3 step**: add frag_ID column
+
+```{r}
+cdna_df <- cdna_df %>%
+  group_by(FEAT) %>%
+  arrange(FEAT) %>%
+  mutate(frag_ID = paste0("frag", row_number())) %>%
+  ungroup()
+```
+
+**4 step**: pivot_longer dataset
+
+```{r}
+cdna_df<-cdna_df %>%
+  pivot_longer(!c(FEAT, frag_ID), names_to="sample", values_to = "count")
+head(cdna_df)
+```
+
+**6 step**: add Col_ID column
+
+```{r}
+cdna_df <- cdna_df %>%
+  mutate(col_ID = paste(sample, frag_ID, sep = "_"))
+
+head(cdna_df)
+```
+
+**7 step**: reshape one row per promoter and col_ID as columns
+
+```{r}
+cdna_df<-cdna_df %>%
+  pivot_wider(
+    id_cols = FEAT,
+    names_from = col_ID,
+    values_from = count,
+    values_fill = 0  
+  )
+head(cdna_df)
+```
+
+**8 step**: make two tables one for dmso and gef and one for dmso and sch77
+
+```{r}
+dmso_columns <- grep("dmso", names(cdna_df), value = TRUE)
+gef_columns <- grep("gef", names(cdna_df), value = TRUE)
+sch77_columns <- grep("sch77", names(cdna_df), value = TRUE)
+selected_columns_final_dmso_gef <- c(dmso_columns,gef_columns)
+selected_columns_final_dmso_sch77 <- c(dmso_columns,sch77_columns)
+
+cdna_dmso_gef_df <- cdna_df[, selected_columns_final_dmso_gef]    
+cdna_dmso_sch77_df <- cdna_df[, selected_columns_final_dmso_sch77] 
+cdna_dmso_gef_mat<-as.matrix(cdna_dmso_gef_df)
+cdna_dmso_sch77_mat<-as.matrix(cdna_dmso_sch77_df)
+rownames(cdna_dmso_gef_mat)<-cdna_df$FEAT
+rownames(cdna_dmso_sch77_mat)<-cdna_df$FEAT
+head(cdna_dmso_gef_mat)
+head(cdna_dmso_sch77_mat)
+```
+
+## pDNA preprocessing
+
+**2 step**: filtering columns (only pDNA and feature information)
+
+```{r}
+pDNA_columns <- grep("T1_T2", names(df), value = TRUE)
+selected_columns_final_pdna <- c(pDNA_columns, 'FEAT')
+
+pdna_df <- df[, ..selected_columns_final_pdna]    
+
+head(pdna_df)
+```
+
+**3 step**: add frag_ID column
+
+```{r}
+pdna_df <- pdna_df %>%
+  group_by(FEAT) %>%
+  arrange(FEAT) %>%
+  mutate(frag_ID = paste0("frag", row_number())) %>%
+  ungroup()
+
+head(pdna_df)
+```
+
+**3 step**: reshape one row per promoter and col_ID as columns
+
+```{r}
+pdna_df<-pdna_df %>%
+  pivot_wider(
+    id_cols = FEAT,
+    names_from = frag_ID,
+    values_from = pDNA_T1_T2_sum,
+    values_fill = 0  
+  )
+head(pdna_df)
+```
+
+**4 step**: duplicate the dataset to have two "replicates"
+
+```{r}
+frags_only <- pdna_df %>% select(-FEAT)
+frags_dup <- frags_only
+colnames(frags_dup) <- paste0(colnames(frags_dup), "_dup")
+pdna_df <- bind_cols(pdna_df, frags_dup)
+head(pdna_df)
+```
+
+5 step: duplicate the dataset again to have two "conditions"
+
+```{r}
+feat_col <- pdna_df %>% select(FEAT)
+frag_cols <- pdna_df %>% select(-FEAT)
+
+
+interleaved <- purrr::map2_dfc(
+  frag_cols,
+  names(frag_cols),
+  ~ bind_cols(.x, .x) %>%
+    setNames(c(.y, paste0(.y, "_copy")))
+)
+
+
+pdna_df <- bind_cols(feat_col, interleaved)
+
+```
+
+6 step: change column names
+
+```{r}
+pdna_mat<-as.matrix(pdna_df[,-1])
+rownames(pdna_mat)<-pdna_df[[1]]
+pdna_dmso_gef_mat<-pdna_mat
+pdna_dmso_sch77_mat<-pdna_mat
+
+colnames(pdna_dmso_gef_mat)<-colnames(cdna_dmso_gef_mat)
+colnames(pdna_dmso_sch77_mat)<-colnames(cdna_dmso_sch77_mat)
+head(pdna_dmso_gef_mat)
+head(pdna_dmso_sch77_mat)
+```
+
+Preprocessing done!!
+
+## Volcano plots
+
+```{r}
+library(dplyr)
+        library(ggplot2)
+        library(reshape2)
+       # library(BiocParallel)
+        library(optparse)
+        library(tidyr)
+        library(ggrepel)
+        library(ggnewscale)
+
+if (!require("BCalm", quietly = TRUE)){
+        cat("--------------------------- Installing BCalm\n\n")
+        remotes::install_github("kircherlab/BCalm")
+        suppressPackageStartupMessages(library(BCalm))
+} else {
+        suppressPackageStartupMessages(library(BCalm))
+}
+```
+
+```{r}
+BcVariantMPRASet_GEF <- MPRASet(DNA = pdna_dmso_gef_mat, RNA = cdna_dmso_gef_mat, eid = row.names(pdna_dmso_gef_mat), barcode = NULL)
+```
+
+```         
+```
+
+```{r}
+bcs_gef <- ncol(pdna_dmso_gef_mat) /2
+```
+
+```{r}
+design_gef <- data.frame(intcpt = 1, alt = grepl("gef", colnames(BcVariantMPRASet_GEF)))
+```
+
+```{r}
+block_vector_gef <- rep(1:2, each=bcs_gef)
+mpralm_fit_var_gef <- mpralm(object = BcVariantMPRASet_GEF, design = design_gef, aggregate = "none", normalize = TRUE, model_type = "corr_groups", plot = FALSE, block = block_vector_gef)
+
+
+```
+
+```{r}
+top_var_gef<- topTable(mpralm_fit_var_gef, coef = 2, number = Inf)
+head(top_var_gef)
+```
+
+```{r}
+top_var_gef$significance_gef <- ifelse(top_var_gef$P.Value < 0.05 & abs(top_var_gef$logFC) > 1, "Significant", "Not Significant")
+top_var_gef$label <- sapply(strsplit(rownames(top_var_gef), "_"), function(x) x[3])
+volcano_gef<- ggplot(top_var_gef, aes(x = logFC, y = -log10(P.Value), color = significance_gef)) +
+   geom_point(alpha = 0.8, size = 2.5) +
+  geom_text(
+    data = subset(top_var_gef, significance_gef == "Significant"),
+    aes(label = label),
+    size =3,
+    vjust = -1,
+    check_overlap = TRUE
+  ) +
+  scale_color_manual(values = c("gray", "red")) +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed") +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+  labs(title = "Volcano Plot (GEF vs DMSO)", x = "Log2 Fold Change", y = "-Log10 p-value") +
+  theme_classic()
+
+volcano_gef
+```
+
+```{r}
+BcVariantMPRASet_SCH77 <- MPRASet(DNA = pdna_dmso_sch77_mat, RNA = cdna_dmso_sch77_mat, eid = row.names(pdna_dmso_sch77_mat), barcode = NULL)
+bcs_sch77 <- ncol(pdna_dmso_sch77_mat) /2
+design_sch77 <- data.frame(intcpt = 1, alt = grepl("sch77", colnames(BcVariantMPRASet_SCH77)))
+block_vector_sch77 <- rep(1:2, each=bcs_sch77)
+mpralm_fit_var_sch77 <- mpralm(object = BcVariantMPRASet_SCH77, design = design_sch77, aggregate = "none", normalize = TRUE, model_type = "corr_groups", plot = FALSE, block = block_vector_sch77)
+top_var_sch77<- topTable(mpralm_fit_var_sch77, coef = 2, number = Inf)
+
+
+top_var_sch77$significance_sch77 <- ifelse(top_var_sch77$P.Value < 0.05 & abs(top_var_sch77$logFC) > 1, "Significant", "Not Significant")
+
+top_var_sch77$label <- sapply(strsplit(rownames(top_var_sch77), "_"), function(x) x[3])
+
+volcano_sch77<- ggplot(top_var_sch77, aes(x = logFC, y = -log10(P.Value), color = significance_sch77)) +
+
+   geom_point(alpha = 0.8, size = 2.5) +
+
+  geom_text(
+
+    data = subset(top_var_sch77, significance_sch77 == "Significant"),
+
+    aes(label = label),
+
+    size =3,
+
+    vjust = -1,
+
+    check_overlap = TRUE
+
+  ) +
+
+  scale_color_manual(values = c("gray", "red")) +
+
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed") +
+
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+
+  labs(title = "Volcano Plot (sch77 vs DMSO)", x = "Log2 Fold Change", y = "-Log10 p-value") +
+
+  theme_classic()
+volcano_sch77
+head(top_var_sch77)
+```
+
+```{r}
+volcano_sch77
+```
+
+t

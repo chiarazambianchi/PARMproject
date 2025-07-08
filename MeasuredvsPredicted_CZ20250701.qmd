@@ -1,0 +1,98 @@
+---
+title: "Measured Vs predicted"
+format: html
+editor: visual
+---
+
+### Measured vs Predicted (B1and B3 models)
+
+**1 step**: reading the datasets
+
+```{r}
+prediction_dmso_df<-fread('PC9_dmso_all/predictions.txt.gz')
+prediction_gef_df<-fread('PC9_gef_all/predictions.txt.gz')
+prediction_sch77_df<-fread('PC9_sch77_all/predictions.txt.gz', fill=Inf)
+```
+
+### DMSO model
+
+**2 step**: grouping per promoter
+
+```{r}
+mean_dmso<- prediction_dmso_df[, lapply(.SD, mean), by = FEAT, .SDcols = c("Log2RPM_PC9_dmso_all", "PC9_dmso_all_pred")] 
+head (mean_dmso)
+
+```
+
+**3 step**: plotting meaured vs predicted (DMSO)
+
+```{r}
+
+ggplot(mean_dmso, aes(x = Log2RPM_PC9_dmso_all, y = PC9_dmso_all_pred)) +
+  geom_point(alpha = 0.6, color = "darkgray") +
+  geom_smooth(method = "lm", se = FALSE, linetype = "dashed", color = "gray40") +
+  stat_cor(method = "pearson", 
+           label.x = min(mean_dmso$Log2RPM_PC9_dmso_all, na.rm = TRUE),
+           label.y = max(mean_dmso$PC9_dmso_all_pred, na.rm = TRUE),
+           size = 5) +
+  theme_classic() +
+  labs(
+    title = "Observed vs Predicted Activity (DMSO)",
+    x = "Observed Log2RPM",
+    y = "Predicted Activity"
+  )
+```
+
+## GEF model
+
+**2 step**: grouping per promoter
+
+```{r}
+mean_gef<- prediction_gef_df[, lapply(.SD, mean), by = FEAT, .SDcols = c("Log2RPM_PC9_gef_all", "PC9_gef_all_pred")] 
+head (mean_gef)
+```
+
+**3 step**: plotting meaured vs predicted (GEF)
+
+```{r}
+ggplot(mean_gef, aes(x = Log2RPM_PC9_gef_all, y = PC9_gef_all_pred)) +
+  geom_point(alpha = 0.6, color = "darkorange") +
+  geom_smooth(method = "lm", se = FALSE, linetype = "dashed", color = "gray40") +
+  stat_cor(method = "pearson", 
+           label.x = min(mean_gef$Log2RPM_PC9_gef_all, na.rm = TRUE),
+           label.y = max(mean_gef$PC9_gef_all_pred, na.rm = TRUE),
+           size = 5) +
+  theme_classic() +
+  labs(
+    title = "Observed vs Predicted Activity (GEF)",
+    x = "Observed Log2RPM",
+    y = "Predicted Activity"
+  )
+```
+
+### SCH77 Model
+
+**2 step**: grouping per promoter
+
+```{r}
+mean_sch77<- prediction_sch77_df[, lapply(.SD, mean), by = FEAT, .SDcols = c("Log2RPM_PC9_sch77_all", "PC9_sch77_all_pred")] 
+head (mean_sch77)
+```
+
+**3 step**: plotting measured vs predicted (SCH77)
+
+```{r}
+ggplot(mean_sch77, aes(x = Log2RPM_PC9_sch77_all, y = PC9_sch77_all_pred)) +
+  geom_point(alpha = 0.6, color = "purple") +
+  geom_smooth(method = "lm", se = FALSE, linetype = "dashed", color = "gray40") +
+  stat_cor(method = "pearson", 
+           label.x = min(mean_sch77$Log2RPM_PC9_sch77_all, na.rm = TRUE),
+           label.y = max(mean_sch77$PC9_sch77_all_pred, na.rm = TRUE),
+           size = 5) +
+  theme_classic() +
+  labs(
+    title = "Observed vs Predicted Activity (sch77)",
+    x = "Observed Log2RPM",
+    y = "Predicted Activity"
+  )
+```
