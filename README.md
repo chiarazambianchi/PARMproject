@@ -11,6 +11,6 @@ bash sum_pDNA_CZ20250414.sh
 To normalise and divide in folds (3 step of PARM preprocessing, in the main folder):
 bash cmd_folds.sh Config_Folds_MH4_PC9_dmso_gef_sch77_20250423.yaml 
 
-The data that is produced from this pipeline is used bith for SuRE measured count analysis (Scripts in SuRE analysis) and for training PARM model (downstream analysis in PARM ANALYSIS script). 
+The data that is produced from this pipeline is used bith for SuRE measured count analysis (Scripts in SuRE_Analysis) and for training PARM model (downstream analysis in PARM ANALYSIS script). 
 
 To further details on PARM model training https://github.com/vansteensellab/PARM
