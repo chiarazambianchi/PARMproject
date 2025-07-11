@@ -1,7 +1,7 @@
 # PARMproject
 Repository containing files, scripts and explanations using my internship in BvS lab (April-August 2025)
 
-E227 data analysis: 
+E2775 data analysis: 
 To run the count pipeline (1 step of PARM preprocessing, instead of XX use the appopriate config file ):
 snakemake --configfile config_counts_XX.yaml --use-conda --cores 50 --resources mem_mb=300 --printshellcmds --snakefile /DATA/usr/v.franceschini/GitHub/process_focused_library/Snakefile
 
